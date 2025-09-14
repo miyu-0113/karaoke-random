@@ -77,7 +77,6 @@
     }
     li button:hover { background:#666; }
 
-    /* ランダム曲表示用 */
     #randomSong {
       margin-top:1em;
       font-size:1.5em;
@@ -108,6 +107,7 @@
       <input id="songInput" placeholder="曲名を入力">
       <button onclick="addSong()">追加</button>
       <button onclick="showRandomSong()">ランダム表示</button>
+      <button onclick="resetSongs()">リセット</button>
     </div>
 
     <h2>登録した曲リスト</h2>
@@ -135,7 +135,14 @@
       try {
         const querySnapshot = await db.collection("songs").get();
         songs = [];
-        querySnapshot.forEach(doc => songs.push({id: doc.id, name: doc.data().name}));
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          songs.push({ 
+            id: doc.id, 
+            name: data.name, 
+            playedToday: data.playedToday || false 
+          });
+        });
         renderList();
       } catch(e) { console.error("読み込みエラー:", e); }
     }
@@ -146,7 +153,10 @@
       if(!value) { alert("曲名を入力してね"); return; }
 
       try {
-        await db.collection("songs").add({ name: value });
+        await db.collection("songs").add({ 
+          name: value,
+          playedToday: false
+        });
         songInput.value = "";
         await loadSongs();
       } catch(e) { console.error("追加エラー:", e); }
@@ -159,18 +169,35 @@
       } catch(e) { console.error("削除エラー:", e); }
     }
 
-    function showRandomSong() {
+    async function showRandomSong() {
       const display = document.getElementById("randomSong");
       display.innerHTML = "";
-      if(songs.length === 0) {
-        display.innerText = "まだ曲がないよ。";
+      const unplayed = songs.filter(s => !s.playedToday);
+      if(unplayed.length === 0){
+        display.innerText = "今日の曲は全部出たよ。リセットしてね。";
         return;
       }
-      const index = Math.floor(Math.random() * songs.length);
+      const index = Math.floor(Math.random() * unplayed.length);
+      const song = unplayed[index];
+
       const span = document.createElement("span");
-      span.textContent = `🎤 ${songs[index].name}`;
+      span.textContent = `🎤 ${song.name}`;
       span.classList.add("fade-slide");
       display.appendChild(span);
+
+      await db.collection("songs").doc(song.id).update({ playedToday: true });
+      songs.find(s => s.id === song.id).playedToday = true;
+
+      renderList(); // マーク更新
+    }
+
+    async function resetSongs() {
+      for(const s of songs){
+        await db.collection("songs").doc(s.id).update({ playedToday: false });
+        s.playedToday = false;
+      }
+      document.getElementById("randomSong").innerText = "リセットしました！";
+      renderList();
     }
 
     function renderList() {
@@ -182,7 +209,8 @@
       }
       songs.forEach((s, i) => {
         const li = document.createElement("li");
-        li.textContent = s.name;
+        // 出た曲には ✔️ をつける
+        li.textContent = (s.playedToday ? "✔️ " : "") + s.name;
         const btn = document.createElement("button");
         btn.textContent = "削除";
         btn.onclick = () => removeSong(i);
