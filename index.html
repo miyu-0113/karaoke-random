@@ -10,21 +10,105 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
-    body { font-family:sans-serif; background:#f9f9f9; padding:1em; text-align:center; }
+    body {
+      font-family: 'Segoe UI', 'Yu Gothic', sans-serif;
+      background: linear-gradient(135deg, #e0e0e0, #b0b0b0);
+      padding: 1em;
+      text-align: center;
+      color: #fff;
+    }
     .container { max-width:500px; margin:0 auto; }
-    input, button { width:100%; font-size:1.2em; padding:0.5em; margin:0.5em 0; }
-    ul { width:100%; max-height:250px; overflow-y:auto; padding:0; margin:0 auto; background:#f0f0f0; border-radius:8px; list-style:none; }
-    li { padding:0.5em; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; }
-    #randomSong { margin-top:1em; font-size:1.5em; font-weight:bold; color:#d43f3f; }
+    h1 { font-size:2em; margin-bottom:0.5em; color:#222; }
+
+    .input-button-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    input, button {
+      width: 100%;
+      font-size:1.2em;
+      padding:0.6em;
+      margin:0.5em 0;
+      border-radius:25px;
+      border:none;
+      outline:none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      box-sizing: border-box;
+    }
+    input { background:#fff; color:#222; text-align:left; padding-left:12px; }
+
+    button {
+      background:#222;
+      color:white;
+      cursor:pointer;
+      transition:0.2s;
+    }
+    button:hover { background:#555; }
+
+    ul {
+      width:100%;
+      max-height:250px;
+      overflow-y:auto;
+      padding:0;
+      margin:0 auto;
+      list-style:none;
+    }
+    li {
+      background:#fff;
+      color:#222;
+      margin:0.3em 0;
+      padding:0.6em 1em;
+      border-radius:12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    li button {
+      background:#444;
+      color:white;
+      font-size:0.9em;
+      padding:0.3em 0.6em;
+      border-radius:12px;
+      transition:0.2s;
+      width:70px;
+      flex-shrink:0;
+    }
+    li button:hover { background:#666; }
+
+    /* ランダム曲表示用 */
+    #randomSong {
+      margin-top:1em;
+      font-size:1.5em;
+      font-weight:bold;
+      color:#111;
+      min-height:40px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow:hidden;
+    }
+    .fade-slide {
+      display:inline-block;
+      opacity:0;
+      transform:translateY(-20px);
+      animation: slideFade 0.5s forwards;
+    }
+    @keyframes slideFade {
+      to { opacity:1; transform:translateY(0); }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>カラオケランダム選曲</h1>
 
-    <input id="songInput" placeholder="曲名を入力">
-    <button onclick="addSong()">追加</button>
-    <button onclick="showRandomSong()">ランダム表示</button>
+    <div class="input-button-wrapper">
+      <input id="songInput" placeholder="曲名を入力">
+      <button onclick="addSong()">追加</button>
+      <button onclick="showRandomSong()">ランダム表示</button>
+    </div>
 
     <h2>登録した曲リスト</h2>
     <ul id="songList"></ul>
@@ -33,7 +117,6 @@
   </div>
 
   <script>
-    // --- Firebase 初期化 ---
     const firebaseConfig = {
       apiKey: "AIzaSyBp7AJ8H2lOIw36oFo_54RelPpu_xEhU1E",
   authDomain: "karaoke-random.firebaseapp.com",
@@ -48,61 +131,52 @@
 
     let songs = [];
 
-    // Firestoreから曲を取得して表示
     async function loadSongs() {
       try {
         const querySnapshot = await db.collection("songs").get();
         songs = [];
-        querySnapshot.forEach((doc) => {
-          songs.push({ id: doc.id, name: doc.data().name });
-        });
+        querySnapshot.forEach(doc => songs.push({id: doc.id, name: doc.data().name}));
         renderList();
-      } catch (error) {
-        console.error("読み込みエラー:", error);
-      }
+      } catch(e) { console.error("読み込みエラー:", e); }
     }
 
-    // Firestoreに曲を追加
     async function addSong() {
       const songInput = document.getElementById("songInput");
       const value = songInput.value.trim();
-      if (!value) { alert("曲名を入力してね"); return; }
+      if(!value) { alert("曲名を入力してね"); return; }
 
       try {
         await db.collection("songs").add({ name: value });
         songInput.value = "";
-        await loadSongs(); // 確実に反映
-      } catch (error) {
-        console.error("追加エラー:", error);
-      }
+        await loadSongs();
+      } catch(e) { console.error("追加エラー:", e); }
     }
 
-    // Firestoreから曲を削除
     async function removeSong(index) {
       try {
-        const songId = songs[index].id;
-        await db.collection("songs").doc(songId).delete();
+        await db.collection("songs").doc(songs[index].id).delete();
         await loadSongs();
-      } catch (error) {
-        console.error("削除エラー:", error);
-      }
+      } catch(e) { console.error("削除エラー:", e); }
     }
 
-    // ランダムに曲を選ぶ
     function showRandomSong() {
-      if (songs.length === 0) {
-        document.getElementById("randomSong").innerText = "まだ曲がないよ。";
+      const display = document.getElementById("randomSong");
+      display.innerHTML = "";
+      if(songs.length === 0) {
+        display.innerText = "まだ曲がないよ。";
         return;
       }
       const index = Math.floor(Math.random() * songs.length);
-      document.getElementById("randomSong").innerText = `🎤 ${songs[index].name}`;
+      const span = document.createElement("span");
+      span.textContent = `🎤 ${songs[index].name}`;
+      span.classList.add("fade-slide");
+      display.appendChild(span);
     }
 
-    // リストを画面に描画
     function renderList() {
       const list = document.getElementById("songList");
       list.innerHTML = "";
-      if (songs.length === 0) {
+      if(songs.length === 0) {
         list.innerHTML = "<li>まだ曲が登録されてないよ。</li>";
         return;
       }
@@ -111,14 +185,12 @@
         li.textContent = s.name;
         const btn = document.createElement("button");
         btn.textContent = "削除";
-        btn.style.fontSize = "1em";
         btn.onclick = () => removeSong(i);
         li.appendChild(btn);
         list.appendChild(li);
       });
     }
 
-    // 初期ロード
     loadSongs();
   </script>
 </body>
