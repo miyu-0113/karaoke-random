@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>カラオケランダム選曲</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    input, button {
+      padding: 0.5rem;
+      margin: 0.3rem;
+      font-size: 1rem;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      background: #fff;
+      margin: 0.3rem auto;
+      padding: 0.5rem;
+      width: 90%;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #songList {
+      max-height: 200px;      /* ここで高さ制限 */
+      overflow-y: auto;       /* スクロールバーを出す */
+      margin: 1rem auto;
+      width: 60%;
+      background: #f0f0f0;
+      border-radius: 8px;
+      padding: 0.5rem;
+    }
+    #randomSong {
+      margin-top: 1.5rem;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #d43f3f;
+    }
+  </style>
+</head>
+<body>
+  <h1>カラオケランダム選曲</h1>
+  
+  <input id="songInput" placeholder="曲名を入力">
+  <button onclick="addSong()">追加</button>
+  <button onclick="showRandomSong()">ランダム表示</button>
+
+  <h2>登録した曲リスト</h2>
+  <ul id="songList"></ul>
+
+  <div id="randomSong"></div>
+
+  <script>
+    let songs = JSON.parse(localStorage.getItem("songs") || "[]");
+
+    function saveSongs() {
+      localStorage.setItem("songs", JSON.stringify(songs));
+    }
+
+    function addSong() {
+      const songInput = document.getElementById("songInput");
+      const value = songInput.value.trim();
+      if (value.length === 0) {
+        alert("曲名を入力してね");
+        return;
+      }
+      songs.push(value);
+      saveSongs();
+      songInput.value = "";
+      renderList();
+    }
+
+    function pickRandomSong(list) {
+      const index = Math.floor(Math.random() * list.length);
+      return list[index];
+    }
+
+    function showRandomSong() {
+      if (songs.length === 0) {
+        document.getElementById("randomSong").innerText = "まだ曲がないよ。";
+        return;
+      }
+      const song = pickRandomSong(songs);
+      document.getElementById("randomSong").innerText = `🎤 ${song}`;
+    }
+
+    function renderList() {
+      const list = document.getElementById("songList");
+      if (songs.length === 0) {
+        list.innerHTML = "<li>まだ曲が登録されてないよ。</li>";
+        return;
+      }
+      list.innerHTML = "";
+      songs.forEach((s, i) => {
+        const li = document.createElement("li");
+        li.textContent = s;
+        const btn = document.createElement("button");
+        btn.textContent = "削除";
+        btn.onclick = () => removeSong(i);
+        li.appendChild(document.createTextNode(" "));
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    function removeSong(index) {
+      songs.splice(index, 1);
+      saveSongs();
+      renderList();
+    }
+
+    renderList();
+  </script>
+</body>
+</html>
