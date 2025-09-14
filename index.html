@@ -4,72 +4,111 @@
   <meta charset="UTF-8">
   <title>カラオケランダム選曲</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family:sans-serif; background:#f9f9f9; padding:1em; text-align:center;">
 
-  <div style="max-width:500px; margin:0 auto;">
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family:sans-serif; background:#f9f9f9; padding:1em; text-align:center; }
+    .container { max-width:500px; margin:0 auto; }
+    input, button { width:100%; font-size:1.2em; padding:0.5em; margin:0.5em 0; }
+    ul { width:100%; max-height:250px; overflow-y:auto; padding:0; margin:0 auto; background:#f0f0f0; border-radius:8px; list-style:none; }
+    li { padding:0.5em; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; }
+    #randomSong { margin-top:1em; font-size:1.5em; font-weight:bold; color:#d43f3f; }
+  </style>
+</head>
+<body>
+  <div class="container">
     <h1>カラオケランダム選曲</h1>
 
-    <input id="songInput" placeholder="曲名を入力" 
-           style="width:100%; max-width:100%; font-size:1.2em; padding:0.5em; margin:0.5em 0;">
-    <button onclick="addSong()" 
-            style="width:100%; max-width:100%; font-size:1.2em; padding:0.5em; margin-bottom:0.5em;">追加</button>
-    <button onclick="showRandomSong()" 
-            style="width:100%; max-width:100%; font-size:1.2em; padding:0.5em;">ランダム表示</button>
+    <input id="songInput" placeholder="曲名を入力">
+    <button onclick="addSong()">追加</button>
+    <button onclick="showRandomSong()">ランダム表示</button>
 
     <h2>登録した曲リスト</h2>
-    <ul id="songList" 
-        style="width:100%; max-height:250px; overflow-y:auto; padding:0; margin:0 auto; background:#f0f0f0; border-radius:8px;">
-    </ul>
+    <ul id="songList"></ul>
 
-    <div id="randomSong" style="margin-top:1em; font-size:1.5em; font-weight:bold; color:#d43f3f;"></div>
+    <div id="randomSong"></div>
   </div>
 
   <script>
-    let songs = JSON.parse(localStorage.getItem("songs") || "[]");
+    // --- Firebase 初期化 ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBp7AJ8H2lOIw36oFo_54RelPpu_xEhU1E",
+  authDomain: "karaoke-random.firebaseapp.com",
+  projectId: "karaoke-random",
+  storageBucket: "karaoke-random.firebasestorage.app",
+  messagingSenderId: "335478021091",
+  appId: "1:335478021091:web:40569fe9aba54872761ed6",
+  measurementId: "G-3947Q7PWPX"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-    function saveSongs() {
-      localStorage.setItem("songs", JSON.stringify(songs));
+    let songs = [];
+
+    // Firestoreから曲を取得して表示
+    async function loadSongs() {
+      try {
+        const querySnapshot = await db.collection("songs").get();
+        songs = [];
+        querySnapshot.forEach((doc) => {
+          songs.push({ id: doc.id, name: doc.data().name });
+        });
+        renderList();
+      } catch (error) {
+        console.error("読み込みエラー:", error);
+      }
     }
 
-    function addSong() {
+    // Firestoreに曲を追加
+    async function addSong() {
       const songInput = document.getElementById("songInput");
       const value = songInput.value.trim();
       if (!value) { alert("曲名を入力してね"); return; }
-      songs.push(value);
-      saveSongs();
-      songInput.value = "";
-      renderList();
+
+      try {
+        await db.collection("songs").add({ name: value });
+        songInput.value = "";
+        await loadSongs(); // 確実に反映
+      } catch (error) {
+        console.error("追加エラー:", error);
+      }
     }
 
-    function pickRandomSong(list) {
-      const index = Math.floor(Math.random() * list.length);
-      return list[index];
+    // Firestoreから曲を削除
+    async function removeSong(index) {
+      try {
+        const songId = songs[index].id;
+        await db.collection("songs").doc(songId).delete();
+        await loadSongs();
+      } catch (error) {
+        console.error("削除エラー:", error);
+      }
     }
 
+    // ランダムに曲を選ぶ
     function showRandomSong() {
       if (songs.length === 0) {
         document.getElementById("randomSong").innerText = "まだ曲がないよ。";
         return;
       }
-      const song = pickRandomSong(songs);
-      document.getElementById("randomSong").innerText = `🎤 ${song}`;
+      const index = Math.floor(Math.random() * songs.length);
+      document.getElementById("randomSong").innerText = `🎤 ${songs[index].name}`;
     }
 
+    // リストを画面に描画
     function renderList() {
       const list = document.getElementById("songList");
+      list.innerHTML = "";
       if (songs.length === 0) {
-        list.innerHTML = "<li style='padding:0.5em;'>まだ曲が登録されてないよ。</li>";
+        list.innerHTML = "<li>まだ曲が登録されてないよ。</li>";
         return;
       }
-      list.innerHTML = "";
-      songs.forEach((s,i) => {
+      songs.forEach((s, i) => {
         const li = document.createElement("li");
-        li.style.padding = "0.5em";
-        li.style.borderBottom = "1px solid #ccc";
-        li.style.display = "flex";
-        li.style.justifyContent = "space-between";
-        li.textContent = s;
+        li.textContent = s.name;
         const btn = document.createElement("button");
         btn.textContent = "削除";
         btn.style.fontSize = "1em";
@@ -79,13 +118,8 @@
       });
     }
 
-    function removeSong(index) {
-      songs.splice(index, 1);
-      saveSongs();
-      renderList();
-    }
-
-    renderList();
+    // 初期ロード
+    loadSongs();
   </script>
 </body>
 </html>
