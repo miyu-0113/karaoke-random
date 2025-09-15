@@ -188,14 +188,18 @@
       await db.collection("songs").doc(song.id).update({ playedToday: true });
       songs.find(s => s.id === song.id).playedToday = true;
 
-      renderList(); // マーク更新
+      renderList(); 
     }
 
+    // バッチ処理でリセット高速化
     async function resetSongs() {
-      for(const s of songs){
-        await db.collection("songs").doc(s.id).update({ playedToday: false });
+      const batch = db.batch();
+      songs.forEach(s => {
+        const docRef = db.collection("songs").doc(s.id);
+        batch.update(docRef, { playedToday: false });
         s.playedToday = false;
-      }
+      });
+      await batch.commit();
       document.getElementById("randomSong").innerText = "リセットしました！";
       renderList();
     }
@@ -209,7 +213,6 @@
       }
       songs.forEach((s, i) => {
         const li = document.createElement("li");
-        // 出た曲には ✔️ をつける
         li.textContent = (s.playedToday ? "✔️ " : "") + s.name;
         const btn = document.createElement("button");
         btn.textContent = "削除";
