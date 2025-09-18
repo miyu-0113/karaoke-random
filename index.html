@@ -78,3 +78,177 @@
     li button:hover { background:#666; }
 
     #randomSong {
+      margin-top:1em;
+      margin-bottom:5px; /* 下の余白を少なくして調整 */
+      font-size:1.5em;
+      font-weight:bold;
+      color:#111;
+      min-height:40px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      flex-direction: column;
+      overflow:hidden;
+    }
+    .fade-slide {
+      display:inline-block;
+      opacity:0;
+      transform:translateY(-20px);
+      animation: slideFade 0.5s forwards;
+    }
+    @keyframes slideFade {
+      to { opacity:1; transform:translateY(0); }
+    }
+
+    /* 区切り線 */
+    #songList {
+      margin-top:5px;
+      padding-top:0;
+      border-top:1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>カラオケランダム選曲</h1>
+
+    <div class="input-button-wrapper">
+      <input id="songInput" placeholder="曲名を入力">
+      <button onclick="addSong()">追加</button>
+      <button onclick="showRandomSong()">ランダム表示</button>
+      <button onclick="resetSongs()">リセット</button>
+    </div>
+
+    <div id="randomSong"></div>
+
+    <ul id="songList"></ul>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBp7AJ8H2lOIw36oFo_54RelPpu_xEhU1E",
+      authDomain: "karaoke-random.firebaseapp.com",
+      projectId: "karaoke-random",
+      storageBucket: "karaoke-random.firebasestorage.app",
+      messagingSenderId: "335478021091",
+      appId: "1:335478021091:web:40569fe9aba54872761ed6",
+      measurementId: "G-3947Q7PWPX"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let songs = [];
+
+    async function loadSongs() {
+      try {
+        const querySnapshot = await db.collection("songs").get();
+        songs = [];
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          songs.push({ 
+            id: doc.id, 
+            name: data.name, 
+            playedToday: data.playedToday || false 
+          });
+        });
+        renderList();
+      } catch(e) { console.error("読み込みエラー:", e); }
+    }
+
+    async function addSong() {
+      const songInput = document.getElementById("songInput");
+      const value = songInput.value.trim();
+      if(!value) { alert("曲名を入力してね"); return; }
+
+      try {
+        await db.collection("songs").add({ 
+          name: value,
+          playedToday: false
+        });
+        songInput.value = "";
+        await loadSongs();
+      } catch(e) { console.error("追加エラー:", e); }
+    }
+
+    async function removeSong(index) {
+      try {
+        await db.collection("songs").doc(songs[index].id).delete();
+        await loadSongs();
+      } catch(e) { console.error("削除エラー:", e); }
+    }
+
+    async function showRandomSong() {
+      const display = document.getElementById("randomSong");
+      display.innerHTML = "";
+      const unplayed = songs.filter(s => !s.playedToday);
+      if(unplayed.length === 0){
+        display.innerText = "今日の曲は全部出たよ。リセットしてね。";
+        return;
+      }
+      const index = Math.floor(Math.random() * unplayed.length);
+      const song = unplayed[index];
+
+      // 一旦チェックつける
+      await db.collection("songs").doc(song.id).update({ playedToday: true });
+      songs.find(s => s.id === song.id).playedToday = true;
+      renderList();
+
+      // 表示
+      const container = document.createElement("div");
+      container.classList.add("fade-slide");
+      container.textContent = `🎤 ${song.name}`;
+
+      // 保留ボタン
+      const holdBtn = document.createElement("button");
+      holdBtn.textContent = "保留";
+      holdBtn.style.marginTop = "8px";
+      holdBtn.onclick = async () => {
+        await db.collection("songs").doc(song.id).update({ playedToday: false });
+        songs.find(s => s.id === song.id).playedToday = false;
+        renderList();
+        display.innerHTML = `⏸️ ${song.name} を保留しました`;
+      };
+
+      container.appendChild(document.createElement("br"));
+      container.appendChild(holdBtn);
+      display.appendChild(container);
+    }
+
+    async function resetSongs() {
+      // ローカルでリセット
+      songs.forEach(s => s.playedToday = false);
+      renderList();
+      document.getElementById("randomSong").innerHTML = "リセットしました！";
+
+      // Firestoreは裏で更新
+      const batch = db.batch();
+      songs.forEach(song => {
+        const ref = db.collection("songs").doc(song.id);
+        batch.update(ref, { playedToday: false });
+      });
+      batch.commit().catch(err => console.error("Reset error:", err));
+    }
+
+    function renderList() {
+      const list = document.getElementById("songList");
+      list.innerHTML = "";
+      if(songs.length === 0) {
+        list.innerHTML = "<li>まだ曲が登録されてないよ。</li>";
+        return;
+      }
+      songs.forEach((s, i) => {
+        const li = document.createElement("li");
+        // 出た曲には ✔️ をつける
+        li.textContent = (s.playedToday ? "✔️ " : "") + s.name;
+        const btn = document.createElement("button");
+        btn.textContent = "削除";
+        btn.onclick = () => removeSong(i);
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    loadSongs();
+  </script>
+</body>
+</html>
