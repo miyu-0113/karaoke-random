@@ -46,6 +46,14 @@
     }
     button:hover { background:#555; }
 
+    /* 区切り線 */
+    .divider {
+      margin: 1em 0;
+      border: none;
+      height: 2px;
+      background: linear-gradient(to right, transparent, #555, transparent);
+    }
+
     ul {
       width:100%;
       max-height:250px;
@@ -129,7 +137,9 @@
       <button onclick="resetSongs()">リセット</button>
     </div>
 
-    <h2>登録した曲リスト</h2>
+    <!-- 区切り線 -->
+    <hr class="divider">
+
     <ul id="songList"></ul>
 
     <div id="randomSong"></div>
