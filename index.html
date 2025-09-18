@@ -2,69 +2,158 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カラオケ曲管理</title>
+  <title>カラオケランダム選曲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
   <style>
     body {
-      font-family: sans-serif;
-      padding: 20px;
+      font-family: 'Segoe UI', 'Yu Gothic', sans-serif;
+      background: linear-gradient(135deg, #e0e0e0, #b0b0b0);
+      padding: 1em;
+      text-align: center;
+      color: #fff;
     }
-    #randomSong {
-      margin-bottom: 5px; /* 下の余白を減らして全体を上に寄せる */
-      font-size: 18px;
-    }
-    #songList {
-      margin-top: 5px;  /* 上の余白を小さく */
-      padding-top: 0;
-      border-top: 1px solid #ccc; /* 線で区切る */
-    }
-    .song-item {
+    .container { max-width:500px; margin:0 auto; }
+    h1 { font-size:2em; margin-bottom:0.5em; color:#222; }
+
+    .input-button-wrapper {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 4px 0;
     }
-    .song-item.played {
-      color: #888;
-      text-decoration: line-through;
+    input, button {
+      width: 100%;
+      font-size:1.2em;
+      padding:0.6em;
+      margin:0.5em 0;
+      border-radius:25px;
+      border:none;
+      outline:none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      box-sizing: border-box;
     }
+    input { background:#fff; color:#222; text-align:left; padding-left:12px; }
+
     button {
-      margin-left: 10px;
-      padding: 3px 6px;
-      font-size: 14px;
-      border: none;
-      border-radius: 6px;
-      background: #f0f0f0;
-      cursor: pointer;
+      background:#222;
+      color:white;
+      cursor:pointer;
+      transition:0.2s;
     }
-    button:hover {
-      background: #e0e0e0;
+    button:hover { background:#555; }
+
+    /* 区切り線 */
+    .divider {
+      margin: 1em 0;
+      border: none;
+      height: 2px;
+      background: linear-gradient(to right, transparent, #555, transparent);
+    }
+
+    ul {
+      width:100%;
+      max-height:250px;
+      overflow-y:auto;
+      padding:0;
+      margin:0 auto;
+      list-style:none;
+    }
+    li {
+      background:#fff;
+      color:#222;
+      margin:0.3em 0;
+      padding:0.6em 1em;
+      border-radius:12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    li button {
+      background:#444;
+      color:white;
+      font-size:0.9em;
+      padding:0.3em 0.6em;
+      border-radius:12px;
+      transition:0.2s;
+      width:70px;
+      flex-shrink:0;
+    }
+    li button:hover { background:#666; }
+
+    #randomSong {
+      margin-top:1em;
+      font-size:1.5em;
+      font-weight:bold;
+      color:#111;
+      min-height:40px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow:hidden;
     }
     .fade-slide {
-      animation: fadeSlide 0.6s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      opacity:0;
+      transform:translateY(-20px);
+      animation: slideFade 0.5s forwards;
+      background:#fff;
+      color:#222;
+      padding:0.5em 1em;
+      border-radius:12px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.2);
     }
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .fade-slide button {
+      background:#444;
+      color:white;
+      font-size:0.9em;
+      padding:0.3em 0.6em;
+      border-radius:12px;
+      transition:0.2s;
+      width:auto;
+      flex-shrink:0;
+    }
+    .fade-slide button:hover { background:#666; }
+
+    @keyframes slideFade {
+      to { opacity:1; transform:translateY(0); }
     }
   </style>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <h2>カラオケ曲管理</h2>
-  <input type="text" id="songInput" placeholder="曲名を入力">
-  <button onclick="addSong()">追加</button>
-  <button onclick="showRandomSong()">ランダム表示</button>
-  <button onclick="resetSongs()">リセット</button>
+  <div class="container">
+    <h1>カラオケランダム選曲</h1>
 
-  <div id="randomSong"></div>
+    <div class="input-button-wrapper">
+      <input id="songInput" placeholder="曲名を入力">
+      <button onclick="addSong()">追加</button>
+      <button onclick="showRandomSong()">ランダム表示</button>
+      <button onclick="resetSongs()">リセット</button>
+    </div>
 
-  <div id="songList"></div>
+    <!-- 区切り線 -->
+    <hr class="divider">
+
+    <ul id="songList"></ul>
+
+    <div id="randomSong"></div>
+  </div>
 
   <script>
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
+      apiKey: "AIzaSyBp7AJ8H2lOIw36oFo_54RelPpu_xEhU1E",
+      authDomain: "karaoke-random.firebaseapp.com",
+      projectId: "karaoke-random",
+      storageBucket: "karaoke-random.firebasestorage.app",
+      messagingSenderId: "335478021091",
+      appId: "1:335478021091:web:40569fe9aba54872761ed6",
+      measurementId: "G-3947Q7PWPX"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -72,76 +161,104 @@
     let songs = [];
 
     async function loadSongs() {
-      const snapshot = await db.collection("songs").get();
-      songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      renderList();
+      try {
+        const querySnapshot = await db.collection("songs").get();
+        songs = [];
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          songs.push({ 
+            id: doc.id, 
+            name: data.name, 
+            playedToday: data.playedToday || false 
+          });
+        });
+        renderList();
+      } catch(e) { console.error("読み込みエラー:", e); }
     }
 
     async function addSong() {
-      const input = document.getElementById("songInput");
-      const name = input.value.trim();
-      if (!name) return;
-      const docRef = await db.collection("songs").add({ name, playedToday: false });
-      songs.push({ id: docRef.id, name, playedToday: false });
-      input.value = "";
-      renderList();
+      const songInput = document.getElementById("songInput");
+      const value = songInput.value.trim();
+      if(!value) { alert("曲名を入力してね"); return; }
+
+      try {
+        await db.collection("songs").add({ 
+          name: value,
+          playedToday: false
+        });
+        songInput.value = "";
+        await loadSongs();
+      } catch(e) { console.error("追加エラー:", e); }
+    }
+
+    async function removeSong(index) {
+      try {
+        await db.collection("songs").doc(songs[index].id).delete();
+        await loadSongs();
+      } catch(e) { console.error("削除エラー:", e); }
     }
 
     async function showRandomSong() {
       const display = document.getElementById("randomSong");
       display.innerHTML = "";
       const unplayed = songs.filter(s => !s.playedToday);
-      if (unplayed.length === 0) {
+      if(unplayed.length === 0){
         display.innerText = "今日の曲は全部出たよ。リセットしてね。";
         return;
       }
       const index = Math.floor(Math.random() * unplayed.length);
       const song = unplayed[index];
 
-      // 一旦チェックつける
+      // 一旦チェックをつける
       await db.collection("songs").doc(song.id).update({ playedToday: true });
       songs.find(s => s.id === song.id).playedToday = true;
       renderList();
 
-      // 表示
+      // 曲名＋保留ボタンを表示
       const container = document.createElement("div");
       container.classList.add("fade-slide");
-      container.innerHTML = `🎤 ${song.name}`;
 
-      // 保留ボタン
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = `🎤 ${song.name}`;
+
       const holdBtn = document.createElement("button");
       holdBtn.textContent = "保留";
       holdBtn.onclick = async () => {
         await db.collection("songs").doc(song.id).update({ playedToday: false });
         songs.find(s => s.id === song.id).playedToday = false;
         renderList();
-        display.innerHTML = `⏸️ ${song.name} を保留しました`;
+        display.innerHTML = ""; // 曲の表示も消す
       };
 
+      container.appendChild(nameSpan);
       container.appendChild(holdBtn);
       display.appendChild(container);
     }
 
     async function resetSongs() {
-      const batch = db.batch();
-      songs.forEach(song => {
-        const ref = db.collection("songs").doc(song.id);
-        batch.update(ref, { playedToday: false });
-      });
-      await batch.commit();
-      songs.forEach(s => s.playedToday = false);
+      for(const s of songs){
+        await db.collection("songs").doc(s.id).update({ playedToday: false });
+        s.playedToday = false;
+      }
+      document.getElementById("randomSong").innerText = "リセットしました！";
       renderList();
-      document.getElementById("randomSong").innerHTML = "";
     }
 
     function renderList() {
       const list = document.getElementById("songList");
       list.innerHTML = "";
-      songs.forEach(song => {
-        const item = document.createElement("div");
-        item.className = "song-item" + (song.playedToday ? " played" : "");
-        item.textContent = song.name;
-        list.appendChild(item);
+      if(songs.length === 0) {
+        list.innerHTML = "<li>まだ曲が登録されてないよ。</li>";
+        return;
+      }
+      songs.forEach((s, i) => {
+        const li = document.createElement("li");
+        li.textContent = (s.playedToday ? "✔️ " : "") + s.name;
+        const btn = document.createElement("button");
+        btn.textContent = "削除";
+        btn.onclick = () => removeSong(i);
+        li.appendChild(btn);
+        list.appendChild(li);
       });
     }
 
