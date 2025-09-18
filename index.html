@@ -89,11 +89,30 @@
       overflow:hidden;
     }
     .fade-slide {
-      display:inline-block;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
       opacity:0;
       transform:translateY(-20px);
       animation: slideFade 0.5s forwards;
+      background:#fff;
+      color:#222;
+      padding:0.5em 1em;
+      border-radius:12px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.2);
     }
+    .fade-slide button {
+      background:#444;
+      color:white;
+      font-size:0.9em;
+      padding:0.3em 0.6em;
+      border-radius:12px;
+      transition:0.2s;
+      width:auto;
+      flex-shrink:0;
+    }
+    .fade-slide button:hover { background:#666; }
+
     @keyframes slideFade {
       to { opacity:1; transform:translateY(0); }
     }
@@ -119,12 +138,12 @@
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyBp7AJ8H2lOIw36oFo_54RelPpu_xEhU1E",
-  authDomain: "karaoke-random.firebaseapp.com",
-  projectId: "karaoke-random",
-  storageBucket: "karaoke-random.firebasestorage.app",
-  messagingSenderId: "335478021091",
-  appId: "1:335478021091:web:40569fe9aba54872761ed6",
-  measurementId: "G-3947Q7PWPX"
+      authDomain: "karaoke-random.firebaseapp.com",
+      projectId: "karaoke-random",
+      storageBucket: "karaoke-random.firebasestorage.app",
+      messagingSenderId: "335478021091",
+      appId: "1:335478021091:web:40569fe9aba54872761ed6",
+      measurementId: "G-3947Q7PWPX"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -180,26 +199,37 @@
       const index = Math.floor(Math.random() * unplayed.length);
       const song = unplayed[index];
 
-      const span = document.createElement("span");
-      span.textContent = `🎤 ${song.name}`;
-      span.classList.add("fade-slide");
-      display.appendChild(span);
-
+      // 一旦チェックをつける
       await db.collection("songs").doc(song.id).update({ playedToday: true });
       songs.find(s => s.id === song.id).playedToday = true;
+      renderList();
 
-      renderList(); 
+      // 曲名＋保留ボタンを表示
+      const container = document.createElement("div");
+      container.classList.add("fade-slide");
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = `🎤 ${song.name}`;
+
+      const holdBtn = document.createElement("button");
+      holdBtn.textContent = "保留";
+      holdBtn.onclick = async () => {
+        await db.collection("songs").doc(song.id).update({ playedToday: false });
+        songs.find(s => s.id === song.id).playedToday = false;
+        renderList();
+        display.innerHTML = ""; // 曲の表示も消す
+      };
+
+      container.appendChild(nameSpan);
+      container.appendChild(holdBtn);
+      display.appendChild(container);
     }
 
-    // バッチ処理でリセット高速化
     async function resetSongs() {
-      const batch = db.batch();
-      songs.forEach(s => {
-        const docRef = db.collection("songs").doc(s.id);
-        batch.update(docRef, { playedToday: false });
+      for(const s of songs){
+        await db.collection("songs").doc(s.id).update({ playedToday: false });
         s.playedToday = false;
-      });
-      await batch.commit();
+      }
       document.getElementById("randomSong").innerText = "リセットしました！";
       renderList();
     }
